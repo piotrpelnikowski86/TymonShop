@@ -104,33 +104,32 @@ export default function Home() {
     // 3. Tasowanie
     setGameMessage("Mieszam...");
     
-    // Prędkość zależna od poziomu: Poziom 1 = 1200ms (wolno), Poziom 10 = 250ms (szybko)
+    // Prędkość zależna od poziomu
     const moveDuration = Math.max(250, 1200 - ((cupsLevel - 1) * 100));
     const movesCount = 5 + cupsLevel; // Ilość ruchów
 
     let currentOrder = [0, 1, 2];
 
     for (let i = 0; i < movesCount; i++) {
-        // Losujemy DWA kubki do zamiany (indeksy w tablicy pozycji)
+        // Losujemy DWA kubki do zamiany
         const posA = Math.floor(Math.random() * 3);
         let posB = Math.floor(Math.random() * 3);
         while (posA === posB) posB = Math.floor(Math.random() * 3);
 
-        // Ustawiamy stan animacji (kto się zamienia)
+        // Ustawiamy stan animacji
         setSwappingPair([posA, posB]);
-        setSwapProgress(true); // Start animacji CSS
+        setSwapProgress(true); 
 
         // Czekamy na wykonanie animacji CSS
         await new Promise(r => setTimeout(r, moveDuration));
 
-        // Aktualizujemy logikę (faktyczna zamiana w tablicy)
+        // Aktualizujemy logikę
         const temp = currentOrder[posA];
         currentOrder[posA] = currentOrder[posB];
         currentOrder[posB] = temp;
         setCupsOrder([...currentOrder]);
 
-        setSwapProgress(false); // Reset animacji przed następnym ruchem
-        // Krótka pauza między ruchami, żeby mózg zdążył zarejestrować
+        setSwapProgress(false); 
         await new Promise(r => setTimeout(r, 50)); 
     }
 
@@ -162,7 +161,7 @@ export default function Home() {
 
   // Helper do obliczenia stylu dla kubka w trakcie animacji
   const getCupStyle = (indexInOrder: number, cupId: number) => {
-      // Domyślna pozycja (lewo/środek/prawo)
+      // Domyślna pozycja
       let leftPercent = indexInOrder === 0 ? 0 : indexInOrder === 1 ? 33.33 : 66.66;
       let transform = areCupsLifted ? 'translateY(-80px)' : 'translateY(0)';
       let zIndex = 10;
@@ -173,23 +172,18 @@ export default function Home() {
           const [posA, posB] = swappingPair;
           const targetPos = posA === indexInOrder ? posB : posA;
           
-          // Oblicz docelową pozycję w %
           const targetLeft = targetPos === 0 ? 0 : targetPos === 1 ? 33.33 : 66.66;
           
-          // Symulacja wymijania: 
-          // Kubek idący w PRAWO idzie "dołem" (bliżej, większy, wyższy z-index)
-          // Kubek idący w LEWO idzie "górą" (dalej, mniejszy, niższy z-index)
           const isMovingRight = targetPos > indexInOrder;
           
           if (isMovingRight) {
               zIndex = 20; // Na wierzchu
-              transform = `translateY(20px) scale(1.1)`; // Łuk w dół i powiększenie
+              transform = `translateY(20px) scale(1.1)`; 
           } else {
               zIndex = 5; // Pod spodem
-              transform = `translateY(-20px) scale(0.9)`; // Łuk w górę i pomniejszenie
+              transform = `translateY(-20px) scale(0.9)`; 
           }
           
-          // Nadpisujemy left, żeby CSS transition to obsłużył
           leftPercent = targetLeft;
       }
 
@@ -254,8 +248,6 @@ export default function Home() {
               
               <div className="flex-grow relative h-64 mb-8 w-full max-w-lg mx-auto">
                   {/* KULKA */}
-                  {/* Kulka jest statyczna w sensie pozycji X, ale ukrywamy ją/pokazujemy */}
-                  {/* Obliczamy pozycję X kulki na podstawie jej ID i aktualnego układu kubków */}
                   <div 
                     className={`absolute bottom-4 w-8 h-8 bg-green-500 rounded-full shadow-[0_0_15px_rgba(34,197,94,0.8)] transition-opacity duration-300 z-0`}
                     style={{ 
@@ -265,10 +257,9 @@ export default function Home() {
                     }}
                   ></div>
 
-                  {/* KUBKI (RENDEROWANIE NA PODSTAWIE STANU cupsOrder) */}
+                  {/* KUBKI */}
                   {cupsOrder.map((cupId, index) => {
                       const style = getCupStyle(index, cupId);
-                      
                       return (
                         <div 
                             key={cupId}
@@ -285,13 +276,9 @@ export default function Home() {
                                     relative
                                     ${canPick ? 'hover:scale-105 hover:brightness-110 cursor-pointer' : ''}
                                 `}
-                                style={{
-                                    clipPath: 'polygon(15% 0%, 85% 0%, 75% 100%, 25% 100%)' // Ładniejszy trapez
-                                }}
+                                style={{ clipPath: 'polygon(15% 0%, 85% 0%, 75% 100%, 25% 100%)' }}
                             >
-                                <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-black/20 font-black text-3xl">
-                                    ?
-                                </span>
+                                <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-black/20 font-black text-3xl">?</span>
                             </button>
                         </div>
                       );
@@ -321,8 +308,12 @@ export default function Home() {
       {/* STRONA GŁÓWNA */}
       <div className="fixed inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-indigo-900/30 via-slate-950 to-slate-950 z-0 pointer-events-none"></div>
 
+      {/* MENU - ZMIANA NAZWY NA TEAM */}
       <nav className="relative z-50 p-6 max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4 border-b border-white/5">
-        <div className="text-3xl md:text-4xl font-black tracking-tighter text-yellow-400 drop-shadow-[0_0_15px_rgba(250,204,21,0.6)] cursor-pointer" onClick={() => scrollToSection('hero')}>TYMON<span className="text-cyan-400">SHOP</span><span className="text-sm align-top text-lime-400 ml-1">PL</span></div>
+        <div className="text-3xl md:text-4xl font-black tracking-tighter text-yellow-400 drop-shadow-[0_0_15px_rgba(250,204,21,0.6)] cursor-pointer" onClick={() => scrollToSection('hero')}>
+          TYMON<span className="text-cyan-400">TEAM</span>
+          <span className="text-sm align-top text-lime-400 ml-1">PL</span>
+        </div>
         <ul className="flex gap-4 md:gap-10 text-xs md:text-lg font-bold tracking-widest bg-white/5 px-4 md:px-8 py-3 rounded-full border border-white/10 backdrop-blur-md">
           <li onClick={() => scrollToSection('gadzety')} className="text-lime-400 hover:text-lime-300 cursor-pointer transition-colors hover:scale-105">GADŻETY</li>
           <li onClick={() => scrollToSection('szkola')} className="text-blue-400 hover:text-blue-300 cursor-pointer transition-colors hover:scale-105">SZKOŁA</li>
