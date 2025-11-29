@@ -23,14 +23,19 @@ export default function Home() {
   const [player1, setPlayer1] = useState("Gracz X");
   const [player2, setPlayer2] = useState("Gracz Y");
 
-  // --- STAN: GRA TRZY KUBKI ---
+  // --- STAN: GRA TRZY KUBKI (NOWA WERSJA 2.0) ---
   const [cupsLevel, setCupsLevel] = useState(1);
-  const [cupsPositions, setCupsPositions] = useState([0, 1, 2]); 
+  // Pozycje kubków: tablica gdzie index to pozycja na ekranie (0,1,2), a wartość to ID kubka
+  const [cupsOrder, setCupsOrder] = useState([0, 1, 2]); 
   const [ballCupId, setBallCupId] = useState<number>(1); 
   const [isGameRunning, setIsGameRunning] = useState(false);
   const [areCupsLifted, setAreCupsLifted] = useState(false);
   const [gameMessage, setGameMessage] = useState("Obserwuj uważnie...");
   const [canPick, setCanPick] = useState(false);
+  
+  // Stany do animacji ruchu 3D
+  const [swappingPair, setSwappingPair] = useState<number[] | null>(null); // Np. [0, 2] - zamieniają się miejscami
+  const [swapProgress, setSwapProgress] = useState(false); // Czy trwa animacja zamiany
 
   const scrollToSection = (id: string) => {
     const element = document.getElementById(id);
@@ -65,11 +70,8 @@ export default function Home() {
       const timer = setTimeout(() => {
         const empty = board.map((v, i) => v === null ? i : null).filter(v => v !== null);
         let move = null;
-        // 1. Wygraj
         for(let idx of empty as number[]) { const b = [...board]; b[idx] = "O"; if(calculateWinner(b) === "O") { move = idx; break; } }
-        // 2. Blokuj
         if(move === null) { for(let idx of empty as number[]) { const b = [...board]; b[idx] = "X"; if(calculateWinner(b) === "X") { move = idx; break; } } }
-        // 3. Losuj
         if(move === null && empty.length > 0) { move = empty[Math.floor(Math.random() * empty.length)]; }
         if (move !== null) { const n = [...board]; n[move] = "O"; setBoard(n); setXIsNext(true); }
       }, 600); return () => clearTimeout(timer);
@@ -79,54 +81,124 @@ export default function Home() {
   const winnerSymbol = calculateWinner(board);
   const status = winnerSymbol ? `WYGRYWA: ${winnerSymbol === 'X' ? player1 : player2} 🎉` : board.every(Boolean) ? "REMIS!" : `RUCH: ${xIsNext ? player1 : player2} (${xIsNext ? 'X' : 'O'})`;
 
-  // --- LOGIKA TRZY KUBKI ---
-  const startGame = async () => {
+  // --- LOGIKA TRZY KUBKI (FIZYKA 3D) ---
+  const startCupsGame = async () => {
     if(isGameRunning) return;
     setIsGameRunning(true);
     setCanPick(false);
     setGameMessage("Gdzie jest kulka?");
+    setSwappingPair(null);
+    setSwapProgress(false);
     
-    const ballPlace = Math.floor(Math.random() * 3);
-    setBallCupId(ballPlace);
-    setCupsPositions([0, 1, 2]); 
+    // 1. Ustawienie początkowe
+    const newBallId = Math.floor(Math.random() * 3);
+    setBallCupId(newBallId);
+    setCupsOrder([0, 1, 2]); // Reset pozycji na start
 
+    // 2. Podniesienie kubków
     setAreCupsLifted(true);
-    await new Promise(r => setTimeout(r, 1000));
+    await new Promise(r => setTimeout(r, 1200));
     setAreCupsLifted(false);
-    await new Promise(r => setTimeout(r, 500));
+    await new Promise(r => setTimeout(r, 600));
 
+    // 3. Tasowanie
     setGameMessage("Mieszam...");
-    const moves = 5 + cupsLevel * 2;
-    const speed = Math.max(150, 800 - (cupsLevel * 60)); 
+    
+    // Prędkość zależna od poziomu: Poziom 1 = 1200ms (wolno), Poziom 10 = 250ms (szybko)
+    const moveDuration = Math.max(250, 1200 - ((cupsLevel - 1) * 100));
+    const movesCount = 5 + cupsLevel; // Ilość ruchów
 
-    let currentPositions = [0, 1, 2];
-    for (let i = 0; i < moves; i++) {
-        const idx1 = Math.floor(Math.random() * 3);
-        let idx2 = Math.floor(Math.random() * 3);
-        while (idx1 === idx2) idx2 = Math.floor(Math.random() * 3);
-        const temp = currentPositions[idx1];
-        currentPositions[idx1] = currentPositions[idx2];
-        currentPositions[idx2] = temp;
-        setCupsPositions([...currentPositions]);
-        await new Promise(r => setTimeout(r, speed));
+    let currentOrder = [0, 1, 2];
+
+    for (let i = 0; i < movesCount; i++) {
+        // Losujemy DWA kubki do zamiany (indeksy w tablicy pozycji)
+        const posA = Math.floor(Math.random() * 3);
+        let posB = Math.floor(Math.random() * 3);
+        while (posA === posB) posB = Math.floor(Math.random() * 3);
+
+        // Ustawiamy stan animacji (kto się zamienia)
+        setSwappingPair([posA, posB]);
+        setSwapProgress(true); // Start animacji CSS
+
+        // Czekamy na wykonanie animacji CSS
+        await new Promise(r => setTimeout(r, moveDuration));
+
+        // Aktualizujemy logikę (faktyczna zamiana w tablicy)
+        const temp = currentOrder[posA];
+        currentOrder[posA] = currentOrder[posB];
+        currentOrder[posB] = temp;
+        setCupsOrder([...currentOrder]);
+
+        setSwapProgress(false); // Reset animacji przed następnym ruchem
+        // Krótka pauza między ruchami, żeby mózg zdążył zarejestrować
+        await new Promise(r => setTimeout(r, 50)); 
     }
+
+    setSwappingPair(null);
     setGameMessage("Wybierz kubek!");
     setCanPick(true);
     setIsGameRunning(false);
   };
 
-  const pickCup = (pickedVisualIndex: number) => {
+  const pickCup = (cupId: number) => {
       if(!canPick) return;
       setCanPick(false);
-      const pickedCupId = cupsPositions[pickedVisualIndex];
       setAreCupsLifted(true); 
-      if(pickedCupId === ballCupId) {
+
+      if(cupId === ballCupId) {
           setGameMessage("BRAWO! 🎉");
-          setTimeout(() => { if(cupsLevel < 10) setCupsLevel(l => l + 1); setAreCupsLifted(false); }, 2000);
+          setTimeout(() => { 
+              if(cupsLevel < 10) setCupsLevel(l => l + 1); 
+              setAreCupsLifted(false); 
+          }, 2000);
       } else {
-          setGameMessage("PUDŁO! WRACASZ NA START 😞");
-          setTimeout(() => { setCupsLevel(1); setAreCupsLifted(false); }, 2000);
+          setGameMessage("PUDŁO! POZIOM 1 😞");
+          setTimeout(() => { 
+              setCupsLevel(1); 
+              setAreCupsLifted(false); 
+          }, 2000);
       }
+  };
+
+  // Helper do obliczenia stylu dla kubka w trakcie animacji
+  const getCupStyle = (indexInOrder: number, cupId: number) => {
+      // Domyślna pozycja (lewo/środek/prawo)
+      let leftPercent = indexInOrder === 0 ? 0 : indexInOrder === 1 ? 33.33 : 66.66;
+      let transform = areCupsLifted ? 'translateY(-80px)' : 'translateY(0)';
+      let zIndex = 10;
+      let transitionTime = Math.max(0.25, 1.2 - ((cupsLevel - 1) * 0.1)) + 's';
+
+      // Jeśli trwa animacja i ten kubek bierze w niej udział
+      if (swapProgress && swappingPair && swappingPair.includes(indexInOrder)) {
+          const [posA, posB] = swappingPair;
+          const targetPos = posA === indexInOrder ? posB : posA;
+          
+          // Oblicz docelową pozycję w %
+          const targetLeft = targetPos === 0 ? 0 : targetPos === 1 ? 33.33 : 66.66;
+          
+          // Symulacja wymijania: 
+          // Kubek idący w PRAWO idzie "dołem" (bliżej, większy, wyższy z-index)
+          // Kubek idący w LEWO idzie "górą" (dalej, mniejszy, niższy z-index)
+          const isMovingRight = targetPos > indexInOrder;
+          
+          if (isMovingRight) {
+              zIndex = 20; // Na wierzchu
+              transform = `translateY(20px) scale(1.1)`; // Łuk w dół i powiększenie
+          } else {
+              zIndex = 5; // Pod spodem
+              transform = `translateY(-20px) scale(0.9)`; // Łuk w górę i pomniejszenie
+          }
+          
+          // Nadpisujemy left, żeby CSS transition to obsłużył
+          leftPercent = targetLeft;
+      }
+
+      return {
+          left: `${leftPercent}%`,
+          transform: transform,
+          zIndex: zIndex,
+          transition: `all ${transitionTime} ease-in-out`
+      };
   };
 
   return (
@@ -142,6 +214,7 @@ export default function Home() {
         </div>
       )}
 
+      {/* TABLICZKA MNOŻENIA */}
       {activeModal === 'knowledge' && (
         <div className="fixed inset-0 z-[100] bg-slate-900/95 backdrop-blur-xl flex items-center justify-center p-4 animate-in fade-in zoom-in duration-300">
            <div className="bg-slate-800 border-2 border-blue-500 rounded-[2rem] p-6 md:p-8 max-w-4xl w-full max-h-[90vh] overflow-y-auto relative shadow-[0_0_50px_rgba(59,130,246,0.5)]">
@@ -154,6 +227,7 @@ export default function Home() {
         </div>
       )}
 
+      {/* QUIZ */}
       {activeModal === 'quiz' && (
         <div className="fixed inset-0 z-[100] bg-slate-900/95 backdrop-blur-xl flex items-center justify-center p-4 animate-in fade-in zoom-in duration-300">
            <div className="bg-slate-800 border-2 border-indigo-500 rounded-[2rem] p-8 max-w-2xl w-full relative shadow-[0_0_50px_rgba(99,102,241,0.5)] text-center">
@@ -170,6 +244,7 @@ export default function Home() {
         </div>
       )}
 
+      {/* GRA TRZY KUBKI - WERSJA 2.0 (WYMIJANIE) */}
       {activeModal === 'cups' && (
         <div className="fixed inset-0 z-[100] bg-slate-900/95 backdrop-blur-xl flex items-center justify-center p-4 animate-in fade-in zoom-in duration-300">
            <div className="bg-slate-800 border-2 border-orange-500 rounded-[2rem] p-8 max-w-4xl w-full relative shadow-[0_0_50px_rgba(249,115,22,0.5)] text-center min-h-[500px] flex flex-col">
@@ -177,27 +252,71 @@ export default function Home() {
               <h2 className="text-3xl md:text-4xl font-black mb-2 text-orange-400">TRZY KUBKI 🥤</h2>
               <div className="text-xl text-slate-400 mb-8">POZIOM: <span className="text-white font-bold text-2xl text-orange-500">{cupsLevel}</span> / 10</div>
               
-              <div className="flex-grow flex items-center justify-center relative h-64 mb-8">
-                  <div className={`absolute bottom-4 w-8 h-8 bg-green-500 rounded-full shadow-[0_0_15px_rgba(34,197,94,0.8)] transition-all duration-300 z-0`} style={{ left: ballCupId === 0 ? '16%' : ballCupId === 1 ? '50%' : '84%', transform: 'translateX(-50%)', opacity: areCupsLifted ? 1 : 0 }}></div>
-                  {[0, 1, 2].map((posIndex) => {
-                      const cupId = cupsPositions[posIndex]; 
-                      const leftPos = posIndex === 0 ? '0%' : posIndex === 1 ? '33.33%' : '66.66%';
+              <div className="flex-grow relative h-64 mb-8 w-full max-w-lg mx-auto">
+                  {/* KULKA */}
+                  {/* Kulka jest statyczna w sensie pozycji X, ale ukrywamy ją/pokazujemy */}
+                  {/* Obliczamy pozycję X kulki na podstawie jej ID i aktualnego układu kubków */}
+                  <div 
+                    className={`absolute bottom-4 w-8 h-8 bg-green-500 rounded-full shadow-[0_0_15px_rgba(34,197,94,0.8)] transition-opacity duration-300 z-0`}
+                    style={{ 
+                        left: cupsOrder.indexOf(ballCupId) === 0 ? '16%' : cupsOrder.indexOf(ballCupId) === 1 ? '50%' : '84%',
+                        transform: 'translateX(-50%)',
+                        opacity: areCupsLifted ? 1 : 0 
+                    }}
+                  ></div>
+
+                  {/* KUBKI (RENDEROWANIE NA PODSTAWIE STANU cupsOrder) */}
+                  {cupsOrder.map((cupId, index) => {
+                      const style = getCupStyle(index, cupId);
+                      
                       return (
-                        <div key={cupId} className="absolute bottom-0 w-1/3 h-48 flex justify-center items-end transition-all duration-200 z-10" style={{ left: leftPos }}>
-                            <button onClick={() => pickCup(posIndex)} disabled={!canPick} className={`w-24 h-32 md:w-32 md:h-40 bg-gradient-to-b from-orange-500 to-red-600 border-b-4 border-black/30 rounded-b-xl rounded-t-sm shadow-2xl transition-all duration-500 ease-in-out cursor-pointer outline-none select-none relative ${areCupsLifted ? '-translate-y-24' : 'translate-y-0'} ${canPick ? 'hover:scale-105 hover:brightness-110' : ''}`} style={{ clipPath: 'polygon(10% 0%, 90% 0%, 80% 100%, 20% 100%)' }}>
-                                <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-black/20 font-black text-2xl">?</span>
+                        <div 
+                            key={cupId}
+                            className="absolute bottom-0 w-1/3 h-48 flex justify-center items-end"
+                            style={style}
+                        >
+                            <button
+                                onClick={() => pickCup(cupId)}
+                                disabled={!canPick}
+                                className={`
+                                    w-24 h-32 md:w-32 md:h-40 bg-gradient-to-b from-orange-500 to-red-600 
+                                    border-b-4 border-black/30 rounded-b-xl rounded-t-sm shadow-2xl
+                                    outline-none select-none
+                                    relative
+                                    ${canPick ? 'hover:scale-105 hover:brightness-110 cursor-pointer' : ''}
+                                `}
+                                style={{
+                                    clipPath: 'polygon(15% 0%, 85% 0%, 75% 100%, 25% 100%)' // Ładniejszy trapez
+                                }}
+                            >
+                                <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-black/20 font-black text-3xl">
+                                    ?
+                                </span>
                             </button>
                         </div>
                       );
                   })}
               </div>
+
               <div className="h-16 flex items-center justify-center">
-                {isGameRunning && !canPick ? (<p className="text-2xl font-bold text-orange-400 animate-pulse">{gameMessage}</p>) : (<p className={`text-2xl font-bold ${gameMessage.includes("BRAWO") ? "text-green-400" : gameMessage.includes("PUDŁO") ? "text-red-500" : "text-white"}`}>{gameMessage}</p>)}
+                {isGameRunning && !canPick ? (
+                    <p className="text-2xl font-bold text-orange-400 animate-pulse">{gameMessage}</p>
+                ) : (
+                    <p className={`text-2xl font-bold ${gameMessage.includes("BRAWO") ? "text-green-400" : gameMessage.includes("PUDŁO") ? "text-red-500" : "text-white"}`}>
+                        {gameMessage}
+                    </p>
+                )}
               </div>
-              {!isGameRunning && !canPick && (<button onClick={startGame} className="mt-4 bg-orange-500 hover:bg-orange-400 text-white text-xl font-bold px-12 py-4 rounded-xl transition-transform active:scale-95 shadow-lg mx-auto block">START GRY</button>)}
+
+              {!isGameRunning && !canPick && (
+                  <button onClick={startCupsGame} className="mt-4 bg-orange-500 hover:bg-orange-400 text-white text-xl font-bold px-12 py-4 rounded-xl transition-transform active:scale-95 shadow-lg mx-auto block">
+                      START GRY
+                  </button>
+              )}
            </div>
         </div>
       )}
+
 
       {/* STRONA GŁÓWNA */}
       <div className="fixed inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-indigo-900/30 via-slate-950 to-slate-950 z-0 pointer-events-none"></div>
@@ -213,17 +332,22 @@ export default function Home() {
 
       <section id="hero" className="relative z-10 flex flex-col items-center justify-center text-center mt-16 md:mt-24 px-4 mb-32">
         <div className="inline-flex items-center gap-2 bg-pink-600 text-white px-6 py-2 rounded-full font-bold text-sm md:text-base mb-8 -rotate-2 shadow-[0_0_20px_rgba(219,39,119,0.5)] animate-pulse border-2 border-pink-400">🚀 STARTUJEMY NIEDŁUGO!</div>
-        <h1 className="text-6xl md:text-9xl font-black mb-6 leading-[0.9] tracking-tight"><span className="block text-transparent bg-clip-text bg-gradient-to-br from-cyan-300 to-blue-600 drop-shadow-2xl">EPICKIE</span><span className="block text-white drop-shadow-[0_0_30px_rgba(255,255,255,0.1)]">RZECZY</span></h1>
+        <h1 className="text-6xl md:text-9xl font-black mb-6 leading-[0.9] tracking-tight">
+          <span className="block text-transparent bg-clip-text bg-gradient-to-br from-cyan-300 to-blue-600 drop-shadow-2xl">EPICKIE</span>
+          <span className="block text-white drop-shadow-[0_0_30px_rgba(255,255,255,0.1)]">RZECZY</span>
+        </h1>
         <p className="text-lg md:text-2xl text-slate-300 max-w-2xl mb-12 font-medium leading-relaxed">Oficjalna baza Tymona. Tutaj znajdziesz <span className="text-lime-400 font-bold">najlepsze gadżety</span> oraz materiały do nauki.</p>
         <button onClick={() => scrollToSection('gadzety')} className="px-10 py-5 bg-lime-400 hover:bg-lime-300 text-black text-2xl font-black rounded-2xl transition-transform hover:scale-105 shadow-[0_0_40px_rgba(163,230,53,0.5)] border-b-4 border-lime-600 active:border-b-0 active:translate-y-1">💥 CHCĘ BYĆ PIERWSZY!</button>
       </section>
 
+      {/* ================= GADŻETY ================= */}
       <section id="gadzety" className="relative z-10 py-20 px-4">
           <div className="text-center mb-16 relative">
                <div className="absolute inset-0 flex justify-center items-center opacity-10 pointer-events-none"><span className="text-[10rem] md:text-[15rem] font-black text-lime-500/10 tracking-tighter">SHOP</span></div>
                <span className="text-lime-400 font-bold tracking-widest uppercase mb-2 block relative">Oficjalny Sklep</span>
                <h2 className="text-4xl md:text-6xl font-black text-white drop-shadow-lg relative">TWOJE <span className="text-transparent bg-clip-text bg-gradient-to-r from-lime-400 to-green-500">GADŻETY</span></h2>
           </div>
+
           <div className="max-w-6xl mx-auto flex flex-col gap-16">
             <div>
                 <h3 className="text-2xl font-black text-lime-400 mb-8 pl-4 border-l-4 border-lime-400 uppercase tracking-widest">Strefa: Odzież</h3>
@@ -266,6 +390,7 @@ export default function Home() {
                     </div>
                 </div>
             </div>
+
             <div>
                 <h3 className="text-2xl font-black text-pink-500 mb-8 pl-4 border-l-4 border-pink-500 uppercase tracking-widest">Strefa: Szkoła</h3>
                 <div className="grid md:grid-cols-2 gap-8">
@@ -280,6 +405,7 @@ export default function Home() {
                     </div>
                 </div>
             </div>
+
             <div>
                 <h3 className="text-2xl font-black text-orange-400 mb-8 pl-4 border-l-4 border-orange-400 uppercase tracking-widest">Strefa: Orzeźwienie</h3>
                 <div className="grid md:grid-cols-2 gap-8">
