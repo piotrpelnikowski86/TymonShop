@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 
 export default function Home() {
@@ -8,7 +8,7 @@ export default function Home() {
   const [zoomedImage, setZoomedImage] = useState<string | null>(null);
 
   // --- STAN: OKNA MODALE ---
-  const [activeModal, setActiveModal] = useState<'knowledge' | 'quiz' | null>(null);
+  const [activeModal, setActiveModal] = useState<'knowledge' | 'quiz' | 'cups' | null>(null);
 
   // --- STAN: QUIZ ---
   const [quizQuestion, setQuizQuestion] = useState({ a: 1, b: 1 });
@@ -16,12 +16,21 @@ export default function Home() {
   const [quizMessage, setQuizMessage] = useState("");
   const [quizInput, setQuizInput] = useState("");
 
-  // --- STAN: GRA ---
+  // --- STAN: GRA KÓŁKO I KRZYŻYK ---
   const [board, setBoard] = useState(Array(9).fill(null));
   const [xIsNext, setXIsNext] = useState(true);
   const [gameMode, setGameMode] = useState<'PvP' | 'PvC'>('PvP');
   const [player1, setPlayer1] = useState("Gracz X");
   const [player2, setPlayer2] = useState("Gracz Y");
+
+  // --- STAN: GRA TRZY KUBKI ---
+  const [cupsLevel, setCupsLevel] = useState(1);
+  const [cupsPositions, setCupsPositions] = useState([0, 1, 2]); 
+  const [ballCupId, setBallCupId] = useState<number>(1); 
+  const [isGameRunning, setIsGameRunning] = useState(false);
+  const [areCupsLifted, setAreCupsLifted] = useState(false);
+  const [gameMessage, setGameMessage] = useState("Obserwuj uważnie...");
+  const [canPick, setCanPick] = useState(false);
 
   const scrollToSection = (id: string) => {
     const element = document.getElementById(id);
@@ -41,7 +50,7 @@ export default function Home() {
   };
   useEffect(() => { if (activeModal === 'quiz') { generateQuestion(); setQuizScore(0); } }, [activeModal]);
 
-  // --- LOGIKA GRY ---
+  // --- LOGIKA KÓŁKO I KRZYŻYK (HARD AI) ---
   const calculateWinner = (squares: any[]) => {
     const lines = [[0, 1, 2], [3, 4, 5], [6, 7, 8], [0, 3, 6], [1, 4, 7], [2, 5, 8], [0, 4, 8], [2, 4, 6]];
     for (let i = 0; i < lines.length; i++) { const [a, b, c] = lines[i]; if (squares[a] && squares[a] === squares[b] && squares[a] === squares[c]) return squares[a]; }
@@ -55,13 +64,70 @@ export default function Home() {
     if (gameMode === 'PvC' && !xIsNext && !calculateWinner(board)) {
       const timer = setTimeout(() => {
         const empty = board.map((v, i) => v === null ? i : null).filter(v => v !== null);
-        if (empty.length > 0) { const rnd = empty[Math.floor(Math.random() * empty.length)]; if (rnd !== undefined) { const n = [...board]; n[rnd] = "O"; setBoard(n); setXIsNext(true); } }
+        let move = null;
+        // 1. Wygraj
+        for(let idx of empty as number[]) { const b = [...board]; b[idx] = "O"; if(calculateWinner(b) === "O") { move = idx; break; } }
+        // 2. Blokuj
+        if(move === null) { for(let idx of empty as number[]) { const b = [...board]; b[idx] = "X"; if(calculateWinner(b) === "X") { move = idx; break; } } }
+        // 3. Losuj
+        if(move === null && empty.length > 0) { move = empty[Math.floor(Math.random() * empty.length)]; }
+        if (move !== null) { const n = [...board]; n[move] = "O"; setBoard(n); setXIsNext(true); }
       }, 600); return () => clearTimeout(timer);
     }
   }, [xIsNext, gameMode, board]);
   const toggleGameMode = (mode: 'PvP' | 'PvC') => { setGameMode(mode); setBoard(Array(9).fill(null)); setXIsNext(true); if (mode === 'PvC') setPlayer2("KOMP"); else setPlayer2("Gracz Y"); };
   const winnerSymbol = calculateWinner(board);
   const status = winnerSymbol ? `WYGRYWA: ${winnerSymbol === 'X' ? player1 : player2} 🎉` : board.every(Boolean) ? "REMIS!" : `RUCH: ${xIsNext ? player1 : player2} (${xIsNext ? 'X' : 'O'})`;
+
+  // --- LOGIKA TRZY KUBKI ---
+  const startGame = async () => {
+    if(isGameRunning) return;
+    setIsGameRunning(true);
+    setCanPick(false);
+    setGameMessage("Gdzie jest kulka?");
+    
+    const ballPlace = Math.floor(Math.random() * 3);
+    setBallCupId(ballPlace);
+    setCupsPositions([0, 1, 2]); 
+
+    setAreCupsLifted(true);
+    await new Promise(r => setTimeout(r, 1000));
+    setAreCupsLifted(false);
+    await new Promise(r => setTimeout(r, 500));
+
+    setGameMessage("Mieszam...");
+    const moves = 5 + cupsLevel * 2;
+    const speed = Math.max(150, 800 - (cupsLevel * 60)); 
+
+    let currentPositions = [0, 1, 2];
+    for (let i = 0; i < moves; i++) {
+        const idx1 = Math.floor(Math.random() * 3);
+        let idx2 = Math.floor(Math.random() * 3);
+        while (idx1 === idx2) idx2 = Math.floor(Math.random() * 3);
+        const temp = currentPositions[idx1];
+        currentPositions[idx1] = currentPositions[idx2];
+        currentPositions[idx2] = temp;
+        setCupsPositions([...currentPositions]);
+        await new Promise(r => setTimeout(r, speed));
+    }
+    setGameMessage("Wybierz kubek!");
+    setCanPick(true);
+    setIsGameRunning(false);
+  };
+
+  const pickCup = (pickedVisualIndex: number) => {
+      if(!canPick) return;
+      setCanPick(false);
+      const pickedCupId = cupsPositions[pickedVisualIndex];
+      setAreCupsLifted(true); 
+      if(pickedCupId === ballCupId) {
+          setGameMessage("BRAWO! 🎉");
+          setTimeout(() => { if(cupsLevel < 10) setCupsLevel(l => l + 1); setAreCupsLifted(false); }, 2000);
+      } else {
+          setGameMessage("PUDŁO! WRACASZ NA START 😞");
+          setTimeout(() => { setCupsLevel(1); setAreCupsLifted(false); }, 2000);
+      }
+  };
 
   return (
     <main className="min-h-screen bg-slate-950 text-white overflow-hidden relative selection:bg-lime-400 selection:text-black">
@@ -78,11 +144,11 @@ export default function Home() {
 
       {activeModal === 'knowledge' && (
         <div className="fixed inset-0 z-[100] bg-slate-900/95 backdrop-blur-xl flex items-center justify-center p-4 animate-in fade-in zoom-in duration-300">
-           <div className="bg-slate-800 border-2 border-blue-500 rounded-[2rem] p-8 max-w-4xl w-full max-h-[90vh] overflow-y-auto relative shadow-[0_0_50px_rgba(59,130,246,0.5)]">
+           <div className="bg-slate-800 border-2 border-blue-500 rounded-[2rem] p-6 md:p-8 max-w-4xl w-full max-h-[90vh] overflow-y-auto relative shadow-[0_0_50px_rgba(59,130,246,0.5)]">
               <button onClick={() => setActiveModal(null)} className="absolute top-4 right-6 text-slate-400 hover:text-white text-4xl font-black">&times;</button>
-              <h2 className="text-3xl md:text-5xl font-black text-center mb-8 text-blue-400">TABLICZKA MNOŻENIA 🤓</h2>
-              <div className="grid grid-cols-5 md:grid-cols-10 gap-2 text-center font-bold font-mono">
-                 {Array.from({ length: 100 }, (_, i) => { const r = Math.floor(i / 10) + 1; const c = (i % 10) + 1; return (<div key={i} className={`p-2 rounded-lg ${r === 1 || c === 1 ? 'bg-blue-600 text-white' : 'bg-slate-700 text-blue-200'} hover:scale-110 transition-transform`}>{r * c}</div>) })}
+              <h2 className="text-2xl md:text-5xl font-black text-center mb-8 text-blue-400">TABLICZKA MNOŻENIA 🤓</h2>
+              <div className="grid grid-cols-3 sm:grid-cols-5 md:grid-cols-10 gap-3 md:gap-2 text-center font-bold font-mono text-lg md:text-base">
+                 {Array.from({ length: 100 }, (_, i) => { const r = Math.floor(i / 10) + 1; const c = (i % 10) + 1; return (<div key={i} className={`p-3 md:p-2 rounded-xl ${r === 1 || c === 1 ? 'bg-blue-600 text-white' : 'bg-slate-700 text-blue-200'} hover:scale-110 transition-transform flex items-center justify-center aspect-square`}>{r * c}</div>) })}
               </div>
            </div>
         </div>
@@ -104,55 +170,64 @@ export default function Home() {
         </div>
       )}
 
+      {activeModal === 'cups' && (
+        <div className="fixed inset-0 z-[100] bg-slate-900/95 backdrop-blur-xl flex items-center justify-center p-4 animate-in fade-in zoom-in duration-300">
+           <div className="bg-slate-800 border-2 border-orange-500 rounded-[2rem] p-8 max-w-4xl w-full relative shadow-[0_0_50px_rgba(249,115,22,0.5)] text-center min-h-[500px] flex flex-col">
+              <button onClick={() => { setActiveModal(null); setCupsLevel(1); }} className="absolute top-4 right-6 text-slate-400 hover:text-white text-4xl font-black">&times;</button>
+              <h2 className="text-3xl md:text-4xl font-black mb-2 text-orange-400">TRZY KUBKI 🥤</h2>
+              <div className="text-xl text-slate-400 mb-8">POZIOM: <span className="text-white font-bold text-2xl text-orange-500">{cupsLevel}</span> / 10</div>
+              
+              <div className="flex-grow flex items-center justify-center relative h-64 mb-8">
+                  <div className={`absolute bottom-4 w-8 h-8 bg-green-500 rounded-full shadow-[0_0_15px_rgba(34,197,94,0.8)] transition-all duration-300 z-0`} style={{ left: ballCupId === 0 ? '16%' : ballCupId === 1 ? '50%' : '84%', transform: 'translateX(-50%)', opacity: areCupsLifted ? 1 : 0 }}></div>
+                  {[0, 1, 2].map((posIndex) => {
+                      const cupId = cupsPositions[posIndex]; 
+                      const leftPos = posIndex === 0 ? '0%' : posIndex === 1 ? '33.33%' : '66.66%';
+                      return (
+                        <div key={cupId} className="absolute bottom-0 w-1/3 h-48 flex justify-center items-end transition-all duration-200 z-10" style={{ left: leftPos }}>
+                            <button onClick={() => pickCup(posIndex)} disabled={!canPick} className={`w-24 h-32 md:w-32 md:h-40 bg-gradient-to-b from-orange-500 to-red-600 border-b-4 border-black/30 rounded-b-xl rounded-t-sm shadow-2xl transition-all duration-500 ease-in-out cursor-pointer outline-none select-none relative ${areCupsLifted ? '-translate-y-24' : 'translate-y-0'} ${canPick ? 'hover:scale-105 hover:brightness-110' : ''}`} style={{ clipPath: 'polygon(10% 0%, 90% 0%, 80% 100%, 20% 100%)' }}>
+                                <span className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-black/20 font-black text-2xl">?</span>
+                            </button>
+                        </div>
+                      );
+                  })}
+              </div>
+              <div className="h-16 flex items-center justify-center">
+                {isGameRunning && !canPick ? (<p className="text-2xl font-bold text-orange-400 animate-pulse">{gameMessage}</p>) : (<p className={`text-2xl font-bold ${gameMessage.includes("BRAWO") ? "text-green-400" : gameMessage.includes("PUDŁO") ? "text-red-500" : "text-white"}`}>{gameMessage}</p>)}
+              </div>
+              {!isGameRunning && !canPick && (<button onClick={startGame} className="mt-4 bg-orange-500 hover:bg-orange-400 text-white text-xl font-bold px-12 py-4 rounded-xl transition-transform active:scale-95 shadow-lg mx-auto block">START GRY</button>)}
+           </div>
+        </div>
+      )}
+
       {/* STRONA GŁÓWNA */}
       <div className="fixed inset-0 bg-[radial-gradient(circle_at_center,_var(--tw-gradient-stops))] from-indigo-900/30 via-slate-950 to-slate-950 z-0 pointer-events-none"></div>
 
       <nav className="relative z-50 p-6 max-w-7xl mx-auto flex flex-col md:flex-row justify-between items-center gap-4 border-b border-white/5">
         <div className="text-3xl md:text-4xl font-black tracking-tighter text-yellow-400 drop-shadow-[0_0_15px_rgba(250,204,21,0.6)] cursor-pointer" onClick={() => scrollToSection('hero')}>TYMON<span className="text-cyan-400">SHOP</span><span className="text-sm align-top text-lime-400 ml-1">PL</span></div>
         <ul className="flex gap-4 md:gap-10 text-xs md:text-lg font-bold tracking-widest bg-white/5 px-4 md:px-8 py-3 rounded-full border border-white/10 backdrop-blur-md">
-          <li onClick={() => scrollToSection('omnie')} className="text-white hover:text-cyan-400 cursor-pointer transition-colors hover:scale-105">O MNIE</li>
           <li onClick={() => scrollToSection('gadzety')} className="text-lime-400 hover:text-lime-300 cursor-pointer transition-colors hover:scale-105">GADŻETY</li>
           <li onClick={() => scrollToSection('szkola')} className="text-blue-400 hover:text-blue-300 cursor-pointer transition-colors hover:scale-105">SZKOŁA</li>
           <li onClick={() => scrollToSection('rozrywka')} className="text-purple-400 hover:text-purple-300 cursor-pointer transition-colors hover:scale-105">ROZRYWKA</li>
         </ul>
       </nav>
 
-      <section id="hero" className="relative z-10 flex flex-col items-center justify-center text-center mt-16 md:mt-24 px-4 mb-24">
+      <section id="hero" className="relative z-10 flex flex-col items-center justify-center text-center mt-16 md:mt-24 px-4 mb-32">
         <div className="inline-flex items-center gap-2 bg-pink-600 text-white px-6 py-2 rounded-full font-bold text-sm md:text-base mb-8 -rotate-2 shadow-[0_0_20px_rgba(219,39,119,0.5)] animate-pulse border-2 border-pink-400">🚀 STARTUJEMY NIEDŁUGO!</div>
-        <h1 className="text-6xl md:text-9xl font-black mb-6 leading-[0.9] tracking-tight">
-          <span className="block text-transparent bg-clip-text bg-gradient-to-br from-cyan-300 to-blue-600 drop-shadow-2xl">EPICKIE</span>
-          <span className="block text-white drop-shadow-[0_0_30px_rgba(255,255,255,0.1)]">RZECZY</span>
-        </h1>
+        <h1 className="text-6xl md:text-9xl font-black mb-6 leading-[0.9] tracking-tight"><span className="block text-transparent bg-clip-text bg-gradient-to-br from-cyan-300 to-blue-600 drop-shadow-2xl">EPICKIE</span><span className="block text-white drop-shadow-[0_0_30px_rgba(255,255,255,0.1)]">RZECZY</span></h1>
         <p className="text-lg md:text-2xl text-slate-300 max-w-2xl mb-12 font-medium leading-relaxed">Oficjalna baza Tymona. Tutaj znajdziesz <span className="text-lime-400 font-bold">najlepsze gadżety</span> oraz materiały do nauki.</p>
         <button onClick={() => scrollToSection('gadzety')} className="px-10 py-5 bg-lime-400 hover:bg-lime-300 text-black text-2xl font-black rounded-2xl transition-transform hover:scale-105 shadow-[0_0_40px_rgba(163,230,53,0.5)] border-b-4 border-lime-600 active:border-b-0 active:translate-y-1">💥 CHCĘ BYĆ PIERWSZY!</button>
       </section>
 
-      <section id="omnie" className="relative z-10 mb-32 px-4">
-        <div className="bg-white/5 backdrop-blur-lg border border-white/10 p-8 rounded-3xl max-w-3xl mx-auto text-center">
-            <div className="grid grid-cols-3 gap-4 text-center text-white font-black text-4xl">
-                <div>14 <span className="text-sm block text-slate-500 font-normal">DNI</span></div>
-                <div>08 <span className="text-sm block text-slate-500 font-normal">GODZIN</span></div>
-                <div className="text-pink-500 animate-bounce">00 <span className="text-sm block text-slate-500 font-normal">MINUT</span></div>
-            </div>
-        </div>
-      </section>
-
-      {/* ================= GADŻETY ================= */}
       <section id="gadzety" className="relative z-10 py-20 px-4">
           <div className="text-center mb-16 relative">
                <div className="absolute inset-0 flex justify-center items-center opacity-10 pointer-events-none"><span className="text-[10rem] md:text-[15rem] font-black text-lime-500/10 tracking-tighter">SHOP</span></div>
                <span className="text-lime-400 font-bold tracking-widest uppercase mb-2 block relative">Oficjalny Sklep</span>
                <h2 className="text-4xl md:text-6xl font-black text-white drop-shadow-lg relative">TWOJE <span className="text-transparent bg-clip-text bg-gradient-to-r from-lime-400 to-green-500">GADŻETY</span></h2>
           </div>
-
           <div className="max-w-6xl mx-auto flex flex-col gap-16">
-            
-            {/* 1. ODZIEŻ (4 KAFELKI) */}
             <div>
                 <h3 className="text-2xl font-black text-lime-400 mb-8 pl-4 border-l-4 border-lime-400 uppercase tracking-widest">Strefa: Odzież</h3>
                 <div className="grid md:grid-cols-2 gap-8">
-                    
-                    {/* Bluza 1 (Kolor) */}
                     <div className="bg-slate-900/50 backdrop-blur-md border border-lime-400/20 rounded-[2.5rem] overflow-hidden shadow-[0_0_50px_rgba(163,230,53,0.15)] p-8 flex flex-col group hover:border-lime-400/50 transition-all">
                         <div className="relative w-full aspect-square rounded-3xl overflow-hidden border-4 border-lime-400/30 shadow-2xl bg-white cursor-zoom-in hover:scale-105 transition-transform mb-6" onClick={() => setZoomedImage('/bluza_Tymon_kolor.png')}>
                             <Image src="/bluza_Tymon_kolor.png" alt="Bluza Kolor" fill className="object-cover" />
@@ -162,8 +237,6 @@ export default function Home() {
                         <p className="text-slate-400 mb-6 flex-grow">Najbardziej kolorowa bluza w szkole. Pokaż swój styl!</p>
                         <button className="w-full bg-lime-400 hover:bg-lime-300 text-black font-black text-lg px-8 py-4 rounded-xl shadow-[0_0_20px_rgba(163,230,53,0.4)] transition-transform active:scale-95">DO KOSZYKA 🛒</button>
                     </div>
-
-                    {/* Bluza 2 (Zielona) */}
                     <div className="bg-slate-900/50 backdrop-blur-md border border-lime-400/20 rounded-[2.5rem] overflow-hidden shadow-[0_0_50px_rgba(163,230,53,0.15)] p-8 flex flex-col group hover:border-lime-400/50 transition-all">
                         <div className="relative w-full aspect-square rounded-3xl overflow-hidden border-4 border-lime-400/30 shadow-2xl bg-white cursor-zoom-in hover:scale-105 transition-transform mb-6" onClick={() => setZoomedImage('/bluza_Tymon_team.png')}>
                             <Image src="/bluza_Tymon_team.png" alt="Bluza Green" fill className="object-cover" />
@@ -173,8 +246,6 @@ export default function Home() {
                         <p className="text-slate-400 mb-6 flex-grow">Klasyczna zieleń z wielkim logo Tymon Team. Wygodna i ciepła.</p>
                         <button className="w-full bg-lime-400 hover:bg-lime-300 text-black font-black text-lg px-8 py-4 rounded-xl shadow-[0_0_20px_rgba(163,230,53,0.4)] transition-transform active:scale-95">DO KOSZYKA 🛒</button>
                     </div>
-
-                    {/* Bluza 3 (Dwa kolory) */}
                     <div className="bg-slate-900/50 backdrop-blur-md border border-lime-400/20 rounded-[2.5rem] overflow-hidden shadow-[0_0_50px_rgba(163,230,53,0.15)] p-8 flex flex-col group hover:border-lime-400/50 transition-all">
                         <div className="relative w-full aspect-square rounded-3xl overflow-hidden border-4 border-lime-400/30 shadow-2xl bg-white cursor-zoom-in hover:scale-105 transition-transform mb-6" onClick={() => setZoomedImage('/bluza_Tymon_dwakolory.png')}>
                             <Image src="/bluza_Tymon_dwakolory.png" alt="Bluza Duo" fill className="object-cover" />
@@ -184,8 +255,6 @@ export default function Home() {
                         <p className="text-slate-400 mb-6 flex-grow">Dostępna w wersji niebieskiej i czarnej. Wybierz swój kolor!</p>
                         <button className="w-full bg-lime-400 hover:bg-lime-300 text-black font-black text-lg px-8 py-4 rounded-xl shadow-[0_0_20px_rgba(163,230,53,0.4)] transition-transform active:scale-95">DO KOSZYKA 🛒</button>
                     </div>
-
-                    {/* Koszulka (Stara) */}
                     <div className="bg-slate-900/50 backdrop-blur-md border border-lime-400/20 rounded-[2.5rem] overflow-hidden shadow-[0_0_50px_rgba(163,230,53,0.15)] p-8 flex flex-col group hover:border-lime-400/50 transition-all">
                         <div className="relative w-full aspect-square rounded-3xl overflow-hidden border-4 border-lime-400/30 shadow-2xl bg-white cursor-zoom-in hover:scale-105 transition-transform mb-6" onClick={() => setZoomedImage('/koszulka.png')}>
                             <Image src="/koszulka.png" alt="Koszulka" fill className="object-cover" />
@@ -195,11 +264,8 @@ export default function Home() {
                         <p className="text-slate-400 mb-6 flex-grow">Lekka koszulka na WF i na co dzień.</p>
                         <button className="w-full bg-lime-400 hover:bg-lime-300 text-black font-black text-lg px-8 py-4 rounded-xl shadow-[0_0_20px_rgba(163,230,53,0.4)] transition-transform active:scale-95">DO KOSZYKA 🛒</button>
                     </div>
-
                 </div>
             </div>
-
-             {/* 2. ZESZYTY */}
             <div>
                 <h3 className="text-2xl font-black text-pink-500 mb-8 pl-4 border-l-4 border-pink-500 uppercase tracking-widest">Strefa: Szkoła</h3>
                 <div className="grid md:grid-cols-2 gap-8">
@@ -214,8 +280,6 @@ export default function Home() {
                     </div>
                 </div>
             </div>
-
-            {/* 3. SOKI */}
             <div>
                 <h3 className="text-2xl font-black text-orange-400 mb-8 pl-4 border-l-4 border-orange-400 uppercase tracking-widest">Strefa: Orzeźwienie</h3>
                 <div className="grid md:grid-cols-2 gap-8">
@@ -230,11 +294,9 @@ export default function Home() {
                     </div>
                 </div>
             </div>
-
           </div>
       </section>
 
-      {/* CENTRUM WIEDZY */}
       <section id="szkola" className="relative z-10 py-20 px-4">
           <div className="text-center mb-16 relative">
                 <div className="absolute inset-0 flex justify-center items-center opacity-10 pointer-events-none"><span className="text-[10rem] md:text-[15rem] font-black text-blue-500/10 tracking-tighter">BRAIN</span></div>
@@ -257,38 +319,55 @@ export default function Home() {
           </div>
       </section>
 
-      {/* STREFA ROZRYWKI */}
       <section id="rozrywka" className="relative z-10 py-24 px-4 mb-20 bg-slate-900/30 backdrop-blur-sm mt-20">
-          <div className="text-center mb-10">
+          <div className="text-center mb-16">
                <h2 className="text-4xl md:text-6xl font-black text-white mb-4">STREFA <span className="text-purple-400">ROZRYWKI</span></h2>
                <p className="text-slate-400 font-bold tracking-widest uppercase">Przerwa w nauce? Zagraj!</p>
           </div>
-          <div className="max-w-xl mx-auto bg-slate-900 border-2 border-purple-500/50 rounded-3xl p-8 shadow-[0_0_60px_rgba(168,85,247,0.3)]">
-              <div className="flex flex-col gap-4 mb-8 p-4 bg-slate-800/50 rounded-2xl border border-white/5">
-                  <div className="flex justify-center gap-4">
-                      <button onClick={() => toggleGameMode('PvP')} className={`px-4 py-2 rounded-lg font-bold text-sm transition-all ${gameMode === 'PvP' ? 'bg-purple-500 text-white shadow-lg' : 'bg-slate-700 text-slate-400'}`}>👥 Gra z Kumplem</button>
-                      <button onClick={() => toggleGameMode('PvC')} className={`px-4 py-2 rounded-lg font-bold text-sm transition-all ${gameMode === 'PvC' ? 'bg-purple-500 text-white shadow-lg' : 'bg-slate-700 text-slate-400'}`}>🤖 Gra z Kompem</button>
+          <div className="max-w-5xl mx-auto grid md:grid-cols-2 gap-12">
+            <div className="bg-slate-900 border-2 border-purple-500/50 rounded-3xl p-8 shadow-[0_0_60px_rgba(168,85,247,0.3)]">
+                <h3 className="text-2xl font-black text-purple-400 mb-6 text-center">KÓŁKO I KRZYŻYK</h3>
+                <div className="flex flex-col gap-4 mb-8 p-4 bg-slate-800/50 rounded-2xl border border-white/5">
+                    <div className="flex justify-center gap-4">
+                        <button onClick={() => toggleGameMode('PvP')} className={`px-4 py-2 rounded-lg font-bold text-sm transition-all ${gameMode === 'PvP' ? 'bg-purple-500 text-white shadow-lg' : 'bg-slate-700 text-slate-400'}`}>👥 Gra z Kumplem</button>
+                        <button onClick={() => toggleGameMode('PvC')} className={`px-4 py-2 rounded-lg font-bold text-sm transition-all ${gameMode === 'PvC' ? 'bg-purple-500 text-white shadow-lg' : 'bg-slate-700 text-slate-400'}`}>🤖 Gra z Kompem</button>
+                    </div>
+                    <div className="flex gap-4 items-center">
+                        <div className="flex-1">
+                            <label className="text-xs text-slate-500 font-bold block mb-1 ml-2">GRACZ X</label>
+                            <input type="text" value={player1} onChange={(e) => setPlayer1(e.target.value)} className="w-full bg-slate-900 border border-purple-500/30 rounded-xl px-4 py-2 text-white font-bold focus:outline-none focus:border-purple-500 text-center" />
+                        </div>
+                        <div className="text-purple-500 font-black">VS</div>
+                        <div className="flex-1">
+                            <label className="text-xs text-slate-500 font-bold block mb-1 ml-2">GRACZ O</label>
+                            <input type="text" value={player2} disabled={gameMode === 'PvC'} onChange={(e) => setPlayer2(e.target.value)} className={`w-full bg-slate-900 border border-cyan-400/30 rounded-xl px-4 py-2 text-white font-bold focus:outline-none focus:border-cyan-400 text-center ${gameMode === 'PvC' ? 'opacity-50' : ''}`} />
+                        </div>
+                    </div>
+                </div>
+                <div className="text-center mb-8"><div className={`text-xl font-black text-white py-3 rounded-xl border border-white/10 ${winnerSymbol ? 'bg-green-600 animate-bounce' : 'bg-slate-800'}`}>{status}</div></div>
+                <div className="grid grid-cols-3 gap-3 mb-8">
+                    {board.map((square, i) => (
+                      <button key={i} className={`h-20 md:h-24 text-4xl md:text-6xl font-black rounded-xl transition-all duration-200 outline-none select-none ${square === 'X' ? 'text-purple-500 bg-purple-500/10 border-2 border-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.5)]' : ''} ${square === 'O' ? 'text-cyan-400 bg-cyan-400/10 border-2 border-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.5)]' : ''} ${!square ? 'bg-slate-800 hover:bg-slate-700' : ''}`} onClick={() => handleClick(i)}>{square}</button>
+                    ))}
+                </div>
+                <button onClick={() => { setBoard(Array(9).fill(null)); setXIsNext(true); }} className="w-full py-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 rounded-xl font-bold text-white text-lg transition-transform hover:scale-105 shadow-lg">🔄 ZAGRAJ JESZCZE RAZ</button>
+            </div>
+
+            <div className="bg-slate-900 border-2 border-orange-500/50 rounded-3xl p-8 shadow-[0_0_60px_rgba(249,115,22,0.3)] flex flex-col justify-between">
+                <div>
+                  <h3 className="text-2xl font-black text-orange-400 mb-6 text-center">TRZY KUBKI</h3>
+                  <div className="text-center mb-8">
+                    <span className="text-6xl">🥤🥤🥤</span>
                   </div>
-                  <div className="flex gap-4 items-center">
-                      <div className="flex-1">
-                          <label className="text-xs text-slate-500 font-bold block mb-1 ml-2">GRACZ X</label>
-                          <input type="text" value={player1} onChange={(e) => setPlayer1(e.target.value)} className="w-full bg-slate-900 border border-purple-500/30 rounded-xl px-4 py-2 text-white font-bold focus:outline-none focus:border-purple-500 text-center" />
-                      </div>
-                      <div className="text-purple-500 font-black">VS</div>
-                      <div className="flex-1">
-                          <label className="text-xs text-slate-500 font-bold block mb-1 ml-2">GRACZ O</label>
-                          <input type="text" value={player2} disabled={gameMode === 'PvC'} onChange={(e) => setPlayer2(e.target.value)} className={`w-full bg-slate-900 border border-cyan-400/30 rounded-xl px-4 py-2 text-white font-bold focus:outline-none focus:border-cyan-400 text-center ${gameMode === 'PvC' ? 'opacity-50' : ''}`} />
-                      </div>
-                  </div>
-              </div>
-              <div className="text-center mb-8"><div className={`text-2xl font-black text-white py-3 rounded-xl border border-white/10 ${winnerSymbol ? 'bg-green-600 animate-bounce' : 'bg-slate-800'}`}>{status}</div></div>
-              <div className="grid grid-cols-3 gap-3 mb-8">
-                  {board.map((square, i) => (
-                    // DODANO outline-none i select-none DO PRZYCISKÓW GRY
-                    <button key={i} className={`h-24 md:h-32 text-5xl md:text-7xl font-black rounded-xl transition-all duration-200 outline-none select-none ${square === 'X' ? 'text-purple-500 bg-purple-500/10 border-2 border-purple-500 shadow-[0_0_15px_rgba(168,85,247,0.5)]' : ''} ${square === 'O' ? 'text-cyan-400 bg-cyan-400/10 border-2 border-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.5)]' : ''} ${!square ? 'bg-slate-800 hover:bg-slate-700' : ''}`} onClick={() => handleClick(i)}>{square}</button>
-                  ))}
-              </div>
-              <button onClick={() => { setBoard(Array(9).fill(null)); setXIsNext(true); }} className="w-full py-4 bg-gradient-to-r from-purple-600 to-indigo-600 hover:from-purple-500 hover:to-indigo-500 rounded-xl font-bold text-white text-lg transition-transform hover:scale-105 shadow-lg">🔄 ZAGRAJ JESZCZE RAZ</button>
+                  <p className="text-slate-300 text-center mb-8 text-lg">
+                    Sprawdź swoją spostrzegawczość! Znajdź kulkę pod jednym z trzech kubków. <br/>
+                    <span className="text-orange-400 font-bold">10 poziomów trudności!</span>
+                  </p>
+                </div>
+                <button onClick={() => { setActiveModal('cups'); setCupsLevel(1); }} className="w-full py-4 bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-400 hover:to-red-400 rounded-xl font-bold text-white text-lg transition-transform hover:scale-105 shadow-lg animate-pulse">
+                  🎮 ROZPOCZNIJ GRĘ
+                </button>
+            </div>
           </div>
       </section>
 
