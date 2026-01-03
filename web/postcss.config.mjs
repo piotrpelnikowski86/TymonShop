@@ -7,3 +7,5 @@ const config = {
 };
 
 export default config;
+
+// Wymuszenie aktualizacji Vercel
