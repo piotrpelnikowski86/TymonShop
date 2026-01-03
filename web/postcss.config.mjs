@@ -8,4 +8,4 @@ const config = {
 
 export default config;
 
-// Wymuszenie aktualizacji Vercel
+// Wymuszenie aktualizacji Vercel// Wymuszenie zmiany Sat Jan  3 19:05:42 UTC 2026
