@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="pl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Warcaby - TymonTeam</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <style>
+        .checkers-board {
+            display: grid;
+            grid-template-columns: repeat(8, 50px);
+            grid-template-rows: repeat(8, 50px);
+            gap: 0;
+            margin: var(--spacing-xl) auto;
+            border: 3px solid var(--primary);
+            border-radius: var(--radius-md);
+            overflow: hidden;
+            box-shadow: var(--shadow-lg);
+            width: fit-content;
+        }
+
+        .checker-square {
+            width: 50px;
+            height: 50px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+        }
+
+        .checker-square.light {
+            background: #F0D9B5;
+        }
+
+        .checker-square.dark {
+            background: #B58863;
+        }
+
+        .checker-square.selected {
+            background: #7FC97F !important;
+        }
+
+        .checker-piece {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            border: 2px solid rgba(0, 0, 0, 0.3);
+            box-shadow: var(--shadow-sm);
+        }
+
+        .checker-piece.red {
+            background: radial-gradient(circle at 30% 30%, #FF6B6B, #C92A2A);
+        }
+
+        .checker-piece.black {
+            background: radial-gradient(circle at 30% 30%, #495057, #212529);
+        }
+
+        .checker-piece.king::after {
+            content: '♔';
+            font-size: 24px;
+            color: rgba(255, 215, 0, 0.9);
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+        }
+
+        .turn-indicator {
+            text-align: center;
+            font-size: var(--font-size-xl);
+            margin-bottom: var(--spacing-md);
+        }
+    </style>
+</head>
+
+<body>
+    <button id="theme-toggle" class="theme-toggle">
+        <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="5" />
+            <line x1="12" y1="1" x2="12" y2="3" />
+            <line x1="12" y1="21" x2="12" y2="23" />
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+            <line x1="1" y1="12" x2="3" y2="12" />
+            <line x1="21" y1="12" x2="23" y2="12" />
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+        </svg>
+        <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+        </svg>
+    </button>
+
+    <div class="screen active">
+        <header class="main-header">
+            <div class="header-left">
+                <button class="btn btn-icon" onclick="window.location.href='entertainment-zone.html'">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M19 12H5M12 19l-7-7 7-7" />
+                    </svg>
+                </button>
+                <h1 class="app-title">Warcaby</h1>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <div class="glass-card game-container">
+                <h2>Warcaby</h2>
+                <p class="text-secondary">Gra dla dwóch graczy</p>
+
+                <div class="turn-indicator" id="turn-indicator">Ruch: Czerwony</div>
+
+                <div class="checkers-board" id="board"></div>
+
+                <div class="game-message" id="message"></div>
+
+                <div class="game-controls">
+                    <button class="btn btn-primary" id="reset-btn">Nowa Gra</button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        // Simple Checkers Game
+        class CheckersGame {
+            constructor() {
+                this.board = Array(8).fill(null).map(() => Array(8).fill(null));
+                this.currentPlayer = 'red';
+                this.selectedPiece = null;
+                this.init();
+            }
+
+            init() {
+                this.setupBoard();
+                this.renderBoard();
+                document.getElementById('reset-btn').addEventListener('click', () => {
+                    this.init();
+                });
+            }
+
+            setupBoard() {
+                // Place red pieces (top)
+                for (let row = 0; row < 3; row++) {
+                    for (let col = 0; col < 8; col++) {
+                        if ((row + col) % 2 === 1) {
+                            this.board[row][col] = { color: 'red', king: false };
+                        }
+                    }
+                }
+
+                // Place black pieces (bottom)
+                for (let row = 5; row < 8; row++) {
+                    for (let col = 0; col < 8; col++) {
+                        if ((row + col) % 2 === 1) {
+                            this.board[row][col] = { color: 'black', king: false };
+                        }
+                    }
+                }
+            }
+
+            renderBoard() {
+                const boardEl = document.getElementById('board');
+                boardEl.innerHTML = '';
+
+                for (let row = 0; row < 8; row++) {
+                    for (let col = 0; col < 8; col++) {
+                        const square = document.createElement('div');
+                        square.className = `checker-square ${(row + col) % 2 === 0 ? 'light' : 'dark'}`;
+                        square.dataset.row = row;
+                        square.dataset.col = col;
+
+                        const piece = this.board[row][col];
+                        if (piece) {
+                            const pieceEl = document.createElement('div');
+                            pieceEl.className = `checker-piece ${piece.color}${piece.king ? ' king' : ''}`;
+                            square.appendChild(pieceEl);
+                        }
+
+                        square.addEventListener('click', () => this.handleClick(row, col));
+                        boardEl.appendChild(square);
+                    }
+                }
+            }
+
+            handleClick(row, col) {
+                const piece = this.board[row][col];
+
+                if (this.selectedPiece) {
+                    // Try to move
+                    if (this.isValidMove(this.selectedPiece, row, col)) {
+                        this.movePiece(this.selectedPiece, row, col);
+                        this.selectedPiece = null;
+                        this.currentPlayer = this.currentPlayer === 'red' ? 'black' : 'red';
+                        this.updateTurnIndicator();
+                        this.renderBoard();
+                    } else {
+                        this.selectedPiece = null;
+                        this.renderBoard();
+                    }
+                } else if (piece && piece.color === this.currentPlayer) {
+                    // Select piece
+                    this.selectedPiece = { row, col };
+                    document.querySelector(`[data-row="${row}"][data-col="${col}"]`).classList.add('selected');
+                }
+            }
+
+            isValidMove(from, toRow, toCol) {
+                const rowDiff = toRow - from.row;
+                const colDiff = Math.abs(toCol - from.col);
+
+                // Empty target
+                if (this.board[toRow][toCol]) return false;
+
+                // Diagonal move
+                if (colDiff !== 1) return false;
+
+                // Direction check
+                if (this.currentPlayer === 'red' && rowDiff !== 1) return false;
+                if (this.currentPlayer === 'black' && rowDiff !== -1) return false;
+
+                return true;
+            }
+
+            movePiece(from, toRow, toCol) {
+                this.board[toRow][toCol] = this.board[from.row][from.col];
+                this.board[from.row][from.col] = null;
+
+                // Check for king promotion
+                if (toRow === 7 && this.board[toRow][toCol].color === 'red') {
+                    this.board[toRow][toCol].king = true;
+                }
+                if (toRow === 0 && this.board[toRow][toCol].color === 'black') {
+                    this.board[toRow][toCol].king = true;
+                }
+            }
+
+            updateTurnIndicator() {
+                const colorText = this.currentPlayer === 'red' ? 'Czerwony' : 'Czarny';
+                document.getElementById('turn-indicator').textContent = `Ruch: ${colorText}`;
+            }
+        }
+
+        const checkersGame = new CheckersGame();
+    </script>
+</body>
+
+</html>

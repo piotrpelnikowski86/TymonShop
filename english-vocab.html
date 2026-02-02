@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="pl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Baza Słówek - TymonTeam</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <style>
+        .vocab-controls {
+            display: flex;
+            gap: var(--spacing-md);
+            margin-bottom: var(--spacing-xl);
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .grade-selector button {
+            padding: var(--spacing-sm) var(--spacing-lg);
+            margin: 0 var(--spacing-xs);
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            border: 2px solid var(--glass-border);
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            transition: all var(--transition-base);
+            font-weight: 600;
+        }
+
+        .grade-selector button.active {
+            background: var(--primary);
+            color: white;
+            border-color: var(--primary);
+        }
+
+        .search-box {
+            flex: 1;
+            min-width: 250px;
+        }
+
+        .vocab-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: var(--spacing-md);
+            margin-top: var(--spacing-xl);
+        }
+
+        .vocab-card {
+            padding: var(--spacing-lg);
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--glass-border);
+            border-radius: var(--radius-md);
+            transition: all var(--transition-base);
+            cursor: pointer;
+        }
+
+        .vocab-card:hover {
+            transform: translateY(-4px);
+            box-shadow: var(--shadow-lg);
+        }
+
+        .vocab-card.flipped .vocab-front {
+            display: none;
+        }
+
+        .vocab-card.flipped .vocab-back {
+            display: block;
+        }
+
+        .vocab-front,
+        .vocab-back {
+            text-align: center;
+        }
+
+        .vocab-back {
+            display: none;
+        }
+
+        .vocab-english {
+            font-size: var(--font-size-2xl);
+            font-weight: 700;
+            color: var(--primary);
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .vocab-polish {
+            font-size: var(--font-size-xl);
+            font-weight: 600;
+            color: var(--text-primary);
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .vocab-category {
+            font-size: var(--font-size-sm);
+            color: var(--text-secondary);
+            text-transform: capitalize;
+            background: var(--bg-tertiary);
+            padding: var(--spacing-xs) var(--spacing-sm);
+            border-radius: var(--radius-sm);
+            display: inline-block;
+        }
+
+        .vocab-stats {
+            text-align: center;
+            margin-bottom: var(--spacing-lg);
+            font-size: var(--font-size-lg);
+            color: var(--text-secondary);
+        }
+
+        .flip-hint {
+            font-size: var(--font-size-xs);
+            color: var(--text-tertiary);
+            margin-top: var(--spacing-sm);
+            font-style: italic;
+        }
+    </style>
+</head>
+
+<body>
+    <button id="theme-toggle" class="theme-toggle">
+        <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="5" />
+            <line x1="12" y1="1" x2="12" y2="3" />
+            <line x1="12" y1="21" x2="12" y2="23" />
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+            <line x1="1" y1="12" x2="3" y2="12" />
+            <line x1="21" y1="12" x2="23" y2="12" />
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+        </svg>
+        <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+        </svg>
+    </button>
+
+    <div class="screen active">
+        <header class="main-header">
+            <div class="header-left">
+                <button class="btn btn-icon" onclick="window.location.href='index.html'">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M19 12H5M12 19l-7-7 7-7" />
+                    </svg>
+                </button>
+                <h1 class="app-title">Baza Słówek</h1>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <div class="glass-card" style="padding: var(--spacing-xl); max-width: 1000px; margin: 0 auto;">
+                <h2 class="section-title">Słownictwo Angielskie</h2>
+
+                <div class="vocab-controls">
+                    <div class="grade-selector">
+                        <button class="active" data-grade="1">Klasa 1</button>
+                        <button data-grade="2">Klasa 2</button>
+                        <button data-grade="3">Klasa 3</button>
+                        <button data-grade="all">Wszystkie</button>
+                    </div>
+
+                    <div class="search-box">
+                        <div class="input-group">
+                            <input type="text" id="search-input" placeholder="Szukaj słówka..." autocomplete="off">
+                            <label for="search-input">Wyszukaj</label>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="vocab-stats" id="vocab-stats"></div>
+
+                <p class="text-center text-secondary">
+                    <small>Kliknij kartę, aby zobaczyć tłumaczenie</small>
+                </p>
+
+                <div class="vocab-grid" id="vocab-grid"></div>
+            </div>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+    <script src="vocab-data.js"></script>
+    <script>
+        class VocabBrowser {
+            constructor() {
+                this.currentGrade = 1;
+                this.searchTerm = '';
+                this.init();
+            }
+
+            init() {
+                this.setupEventListeners();
+                this.displayVocabulary();
+            }
+
+            setupEventListeners() {
+                // Grade selector
+                document.querySelectorAll('.grade-selector button').forEach(btn => {
+                    btn.addEventListener('click', (e) => {
+                        document.querySelectorAll('.grade-selector button').forEach(b =>
+                            b.classList.remove('active'));
+                        e.target.classList.add('active');
+
+                        const grade = e.target.dataset.grade;
+                        this.currentGrade = grade === 'all' ? 'all' : parseInt(grade);
+                        this.displayVocabulary();
+                    });
+                });
+
+                // Search
+                document.getElementById('search-input').addEventListener('input', (e) => {
+                    this.searchTerm = e.target.value.toLowerCase();
+                    this.displayVocabulary();
+                });
+            }
+
+            displayVocabulary() {
+                const grid = document.getElementById('vocab-grid');
+                let words;
+
+                if (this.currentGrade === 'all') {
+                    words = getAllVocabulary();
+                } else {
+                    words = getVocabularyByGrade(this.currentGrade);
+                }
+
+                // Filter by search term
+                if (this.searchTerm) {
+                    words = words.filter(word =>
+                        word.english.toLowerCase().includes(this.searchTerm) ||
+                        word.polish.toLowerCase().includes(this.searchTerm) ||
+                        word.category.toLowerCase().includes(this.searchTerm)
+                    );
+                }
+
+                // Update stats
+                document.getElementById('vocab-stats').textContent =
+                    `Znaleziono: ${words.length} ${words.length === 1 ? 'słówko' : 'słówek'}`;
+
+                // Display cards
+                grid.innerHTML = words.map((word, index) => `
+                    <div class="vocab-card" data-index="${index}">
+                        <div class="vocab-front">
+                            <div class="vocab-english">${word.english}</div>
+                            <div class="vocab-category">${this.translateCategory(word.category)}</div>
+                            <div class="flip-hint">Kliknij, aby zobaczyć tłumaczenie</div>
+                        </div>
+                        <div class="vocab-back">
+                            <div class="vocab-polish">${word.polish}</div>
+                            <div class="vocab-english" style="font-size: var(--font-size-lg); opacity: 0.7;">${word.english}</div>
+                            <div class="vocab-category">${this.translateCategory(word.category)}</div>
+                            <div class="flip-hint">Kliknij, aby wrócić</div>
+                        </div>
+                    </div>
+                `).join('');
+
+                // Add flip functionality
+                grid.querySelectorAll('.vocab-card').forEach(card => {
+                    card.addEventListener('click', () => {
+                        card.classList.toggle('flipped');
+                    });
+                });
+            }
+
+            translateCategory(category) {
+                const translations = {
+                    'colors': 'Kolory',
+                    'numbers': 'Liczby',
+                    'family': 'Rodzina',
+                    'animals': 'Zwierz ęta',
+                    'school': 'Szkoła',
+                    'basic': 'Podstawowe',
+                    'food': 'Jedzenie',
+                    'body': 'Ciało',
+                    'clothes': 'Ubrania',
+                    'weather': 'Pogoda',
+                    'verbs': 'Czasowniki',
+                    'days': 'Dni tygodnia',
+                    'months': 'Miesiące',
+                    'house': 'Dom',
+                    'nature': 'Natura',
+                    'adjectives': 'Przymiotniki',
+                    'transportation': 'Transport'
+                };
+                return translations[category] || category;
+            }
+        }
+
+        const vocabBrowser = new VocabBrowser();
+    </script>
+</body>
+
+</html>

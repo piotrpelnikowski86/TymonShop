@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="pl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kółko i Krzyżyk - TymonTeam</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <style>
+        .board {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            max-width: 400px;
+            margin: var(--spacing-xl) auto;
+        }
+
+        .cell {
+            aspect-ratio: 1;
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            border: 2px solid var(--glass-border);
+            border-radius: var(--radius-md);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 48px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all var(--transition-base);
+        }
+
+        .cell:hover:not(.filled) {
+            background: var(--bg-tertiary);
+            transform: scale(1.05);
+        }
+
+        .cell.filled {
+            cursor: not-allowed;
+        }
+
+        .cell.x {
+            color: var(--primary);
+        }
+
+        .cell.o {
+            color: var(--secondary);
+        }
+
+        .cell.winning {
+            background: var(--success);
+            color: white;
+        }
+
+        .turn-indicator {
+            text-align: center;
+            font-size: var(--font-size-xl);
+            font-weight: 600;
+            margin-bottom: var(--spacing-lg);
+        }
+    </style>
+</head>
+
+<body>
+    <button id="theme-toggle" class="theme-toggle">
+        <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="5" />
+            <line x1="12" y1="1" x2="12" y2="3" />
+            <line x1="12" y1="21" x2="12" y2="23" />
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+            <line x1="1" y1="12" x2="3" y2="12" />
+            <line x1="21" y1="12" x2="23" y2="12" />
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+        </svg>
+        <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+        </svg>
+    </button>
+
+    <div class="screen active">
+        <header class="main-header">
+            <div class="header-left">
+                <button class="btn btn-icon" onclick="window.location.href='entertainment-zone.html'">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M19 12H5M12 19l-7-7 7-7" />
+                    </svg>
+                </button>
+                <h1 class="app-title">Kółko i Krzyżyk</h1>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <div class="glass-card game-container">
+                <h2>Kółko i Krzyżyk</h2>
+                <p class="text-secondary">Gra dla dwóch graczy</p>
+
+                <div class="turn-indicator" id="turn-indicator">Ruch: Gracz X</div>
+
+                <div class="board" id="board">
+                    <div class="cell" data-cell="0"></div>
+                    <div class="cell" data-cell="1"></div>
+                    <div class="cell" data-cell="2"></div>
+                    <div class="cell" data-cell="3"></div>
+                    <div class="cell" data-cell="4"></div>
+                    <div class="cell" data-cell="5"></div>
+                    <div class="cell" data-cell="6"></div>
+                    <div class="cell" data-cell="7"></div>
+                    <div class="cell" data-cell="8"></div>
+                </div>
+
+                <div class="game-message" id="message"></div>
+
+                <div class="game-controls">
+                    <button class="btn btn-primary" id="reset-btn">Nowa Gra</button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="app.js"></script>
+    <script src="tic-tac-toe.js"></script>
+</body>
+
+</html>

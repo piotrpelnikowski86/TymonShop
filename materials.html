@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="pl">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Materiały Edukacyjne - TymonTeam</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap"
+        rel="stylesheet">
+    <style>
+        .materials-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+            gap: var(--spacing-lg);
+        }
+
+        .material-card {
+            padding: var(--spacing-lg);
+            cursor: pointer;
+        }
+
+        .material-title {
+            font-size: var(--font-size-lg);
+            font-weight: 700;
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .material-excerpt {
+            color: var(--text-secondary);
+            font-size: var(--font-size-sm);
+            margin-bottom: var(--spacing-sm);
+        }
+
+        .material-date {
+            font-size: var(--font-size-xs);
+            color: var(--text-tertiary);
+        }
+
+        .no-materials {
+            text-align: center;
+            padding: var(--spacing-2xl);
+            color: var(--text-secondary);
+        }
+
+        .material-modal {
+            max-width: 800px;
+        }
+
+        .material-content {
+            margin-top: var(--spacing-lg);
+            line-height: 1.8;
+        }
+    </style>
+</head>
+
+<body>
+    <button id="theme-toggle" class="theme-toggle">
+        <svg class="sun-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="12" cy="12" r="5" />
+            <line x1="12" y1="1" x2="12" y2="3" />
+            <line x1="12" y1="21" x2="12" y2="23" />
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+            <line x1="1" y1="12" x2="3" y2="12" />
+            <line x1="21" y1="12" x2="23" y2="12" />
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+        </svg>
+        <svg class="moon-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+        </svg>
+    </button>
+
+    <div class="screen active">
+        <header class="main-header">
+            <div class="header-left">
+                <button class="btn btn-icon" onclick="window.location.href='index.html'">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M19 12H5M12 19l-7-7 7-7" />
+                    </svg>
+                </button>
+                <h1 class="app-title">Materiały Edukacyjne</h1>
+            </div>
+        </header>
+
+        <main class="main-content">
+            <h2 class="section-title">Materiały Edukacyjne</h2>
+
+            <div class="materials-grid" id="materials-grid">
+                <div class="no-materials">
+                    <p>Brak materiałów edukacyjnych. Administrator może dodać materiały przez panel administracyjny.</p>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Material View Modal -->
+    <div id="material-modal" class="modal">
+        <div class="modal-content glass-card material-modal">
+            <button class="modal-close" id="material-modal-close">&times;</button>
+            <h2 id="material-modal-title"></h2>
+            <div class="material-date" id="material-modal-date"></div>
+            <div class="material-content" id="material-modal-content"></div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+    <script>
+        // Load and display materials
+        function loadMaterials() {
+            const materials = JSON.parse(localStorage.getItem('tymon-materials') || '[]');
+            const grid = document.getElementById('materials-grid');
+
+            if (materials.length === 0) {
+                grid.innerHTML = '<div class="no-materials"><p>Brak materiałów edukacyjnych. Administrator może dodać materiały przez panel administracyjny.</p></div>';
+                return;
+            }
+
+            grid.innerHTML = materials.map((material, index) => `
+                <div class="glass-card material-card" onclick="viewMaterial(${index})">
+                    <div class="material-title">${material.title}</div>
+                    <div class="material-excerpt">${material.excerpt || material.content.substring(0, 100) + '...'}</div>
+                    <div class="material-date">${new Date(material.date).toLocaleDateString('pl-PL')}</div>
+                </div>
+            `).join('');
+        }
+
+        function viewMaterial(index) {
+            const materials = JSON.parse(localStorage.getItem('tymon-materials') || '[]');
+            const material = materials[index];
+
+            if (material) {
+                document.getElementById('material-modal-title').textContent = material.title;
+                document.getElementById('material-modal-date').textContent =
+                    `Opublikowano: ${new Date(material.date).toLocaleDateString('pl-PL')}`;
+                document.getElementById('material-modal-content').innerHTML =
+                    material.content.replace(/\n/g, '<br>');
+                document.getElementById('material-modal').classList.add('active');
+            }
+        }
+
+        document.getElementById('material-modal-close').addEventListener('click', () => {
+            document.getElementById('material-modal').classList.remove('active');
+        });
+
+        loadMaterials();
+    </script>
+</body>
+
+</html>
